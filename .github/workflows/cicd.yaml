@@ -40,13 +40,25 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
-
   deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Simulate deploy
-        run: |
-          echo "Deploy complete!"
+  needs: build-and-push
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: Deploy to Kubernetes
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      run: |
+        mkdir -p $HOME/.kube
+        echo "$KUBE_CONFIG" | base64 -d > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+        kubectl apply -f k8s/
+        kubectl set image deployment/my-app \
+          my-app=${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+        kubectl rollout status deployment/my-app
 EOF  
           
